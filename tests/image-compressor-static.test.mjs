@@ -22,6 +22,9 @@ for (const snippet of [
   'id="formatSelect"',
   'id="qualityRange"',
   'id="scaleRange"',
+  'id="namePattern"',
+  'id="customPattern"',
+  'id="startNumber"',
   'id="originalPreview"',
   'id="compressedPreview"',
   'id="batchList"',
@@ -52,10 +55,21 @@ for (const snippet of [
   "downloadSelected",
   "downloadAll",
   "preserveOriginalName",
+  "compressCurrentForDownload",
+  "compressAllForDownload",
   "ImageCompressorUtils",
 ]) {
   assert.ok(script.includes(snippet), `Script missing required snippet: ${snippet}`);
 }
+
+assert.ok(
+  !script.includes("scheduleRecompress"),
+  "Settings changes should not trigger automatic recompression",
+);
+assert.ok(
+  !script.includes("recompressAll"),
+  "Uploading images should not automatically compress the whole batch",
+);
 
 const sandbox = {
   window: {},
@@ -87,24 +101,44 @@ assert.equal(utils.compressionRatio(1000, 1200), -20);
 assert.equal(
   utils.buildOutputName({
     originalName: "photo.large.png",
-    index: 2,
+    index: 0,
     format: "webp",
+    custom: "-",
+    start: 1,
+    pattern: "name_suffix",
   }),
-  "photo.large.webp",
+  "photo.large-1.webp",
 );
 assert.equal(
   utils.buildOutputName({
-    originalName: "banner",
-    index: 0,
+    originalName: "banner.png",
+    index: 2,
     format: "jpeg",
+    custom: "压缩-",
+    start: 3,
+    pattern: "prefix_name",
   }),
-  "banner.jpeg",
+  "压缩-5banner.jpeg",
 );
 assert.equal(
   utils.buildOutputName({
     originalName: "  .png",
     index: 4,
     format: "png",
+    custom: "-",
+    start: 1,
+    pattern: "name_suffix",
   }),
-  "image-5.png",
+  "image-5-5.png",
+);
+assert.equal(
+  utils.buildOutputName({
+    originalName: "photo.large.png",
+    index: 0,
+    format: "webp",
+    custom: "-",
+    start: 1,
+    pattern: "original",
+  }),
+  "photo.large.webp",
 );

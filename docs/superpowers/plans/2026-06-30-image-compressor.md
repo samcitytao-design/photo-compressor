@@ -362,7 +362,7 @@ Expected: desktop shows settings beside previews; mobile stacks upload, settings
 
 Upload at least one generated PNG fixture.
 
-Expected: original and compressed previews render, metadata updates, quality/scale changes recompress, and download buttons remain enabled.
+Expected: original preview renders after upload; compressed preview and metadata appear only after clicking download; quality/scale changes clear old compressed output and keep download buttons enabled.
 
 - [ ] **Step 5: Run final automated verification**
 

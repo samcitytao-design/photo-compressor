@@ -9,12 +9,12 @@ Build a refined local clone of `https://010yasuo.vercel.app/`: a browser-only im
 - Static single-page app that can run by opening `index.html` directly.
 - No server upload or external processing for user images.
 - Support click-to-upload and drag-and-drop upload for multiple image files.
-- Show original and compressed previews for the selected image.
+- Show the original preview immediately and show the compressed preview after the user downloads or batch processes images.
 - Support output format selection: WebP, JPEG, PNG.
 - Support quality and scale controls.
 - Show per-image original size, compressed size, compression ratio, and dimensions.
 - Show batch list, current-image navigation, aggregate batch savings, and bulk ZIP download.
-- Preserve the original file name for downloads, replacing only the extension with the chosen output format.
+- Support configurable output naming with original filename, custom text, and start number patterns.
 - Support fullscreen preview for image inspection.
 
 ## Architecture
@@ -31,10 +31,10 @@ The browser will read files with `FileReader` and object URLs, draw images into 
 
 1. User selects or drops image files.
 2. The app filters non-image files and adds unique image files to app state.
-3. The selected image is decoded into an `Image`, rendered into a canvas at the chosen scale, and exported in the chosen format and quality.
-4. Preview, size, dimension, and ratio data are updated.
-5. Batch items are recompressed when format, quality, or scale options change.
-6. Single download saves the selected compressed image; bulk download compresses all images and packages them into a ZIP.
+3. The app waits while the user adjusts format, quality, scale, and naming options.
+4. When the user clicks single download, the selected image is decoded, rendered into a canvas, exported, previewed, and saved.
+5. When the user clicks bulk ZIP download, each image is compressed with the current settings and packaged into a ZIP.
+6. Changing format, quality, or scale clears old compressed previews instead of recompressing in the background.
 
 ## UI Design
 
@@ -42,7 +42,7 @@ The first screen is the tool itself, not a marketing page. The layout uses a qui
 
 - Header with concise product title and privacy note.
 - Large upload drop zone.
-- Compact settings rail or panel for format, quality, scale, and preserved filename preview.
+- Compact settings rail or panel for format, quality, scale, naming rules, and filename preview.
 - Side-by-side preview comparison on desktop.
 - Stacked preview and controls on mobile.
 - Batch list with thumbnails and compression metrics.

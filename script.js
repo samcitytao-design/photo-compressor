@@ -27,8 +27,14 @@
           : rawName;
       return baseName.trim() || `image-${Number(index) + 1}`;
     },
-    buildOutputName({ originalName, index, format }) {
-      return `${utils.preserveOriginalName(originalName, index)}.${format}`;
+    buildOutputName({ originalName, index, format, custom = "-", start = 1, pattern = "name_suffix" }) {
+      const baseName = utils.preserveOriginalName(originalName, index);
+      const number = Number(start || 0) + Number(index || 0);
+      const text = String(custom || "").trim();
+
+      if (pattern === "original") return `${baseName}.${format}`;
+      if (pattern === "prefix_name") return `${text}${number}${baseName}.${format}`;
+      return `${baseName}${text}${number}.${format}`;
     },
   };
 
@@ -48,6 +54,9 @@
     const qualityValue = document.getElementById("qualityValue");
     const scaleRange = document.getElementById("scaleRange");
     const scaleValue = document.getElementById("scaleValue");
+    const namePattern = document.getElementById("namePattern");
+    const customPattern = document.getElementById("customPattern");
+    const startNumber = document.getElementById("startNumber");
     const namePreview = document.getElementById("namePreview");
     const downloadSelected = document.getElementById("downloadSelected");
     const downloadAll = document.getElementById("downloadAll");
@@ -72,8 +81,6 @@
       results: new Map(),
       sourceUrls: new Map(),
       compressedPreviewUrl: "",
-      debounceId: 0,
-      runToken: 0,
       busy: false,
     };
 
@@ -114,23 +121,34 @@
 
       qualityRange.addEventListener("input", () => {
         qualityValue.textContent = `${qualityRange.value}%`;
-        scheduleRecompress();
+        clearPixelResults("点击下载时按当前质量压缩");
       });
 
       scaleRange.addEventListener("input", () => {
         scaleValue.textContent = `${scaleRange.value}%`;
-        scheduleRecompress();
+        clearPixelResults("点击下载时按当前尺寸压缩");
       });
 
       formatSelect.addEventListener("change", () => {
         updateNamePreview();
-        scheduleRecompress();
+        clearPixelResults("点击下载时按当前格式压缩");
       });
+
+      for (const element of [namePattern, customPattern, startNumber]) {
+        element.addEventListener("input", () => {
+          updateNamePreview();
+          renderBatchList();
+        });
+        element.addEventListener("change", () => {
+          updateNamePreview();
+          renderBatchList();
+        });
+      }
 
       prevImage.addEventListener("click", () => selectImage(state.currentIndex - 1));
       nextImage.addEventListener("click", () => selectImage(state.currentIndex + 1));
-      downloadSelected.addEventListener("click", downloadCurrentImage);
-      downloadAll.addEventListener("click", downloadAllImages);
+      downloadSelected.addEventListener("click", compressCurrentForDownload);
+      downloadAll.addEventListener("click", compressAllForDownload);
 
       document.querySelectorAll("[data-preview]").forEach((button) => {
         button.addEventListener("click", () => openFullscreen(button.dataset.preview));
@@ -183,7 +201,6 @@
 
       showToast(`已添加 ${uniqueFiles.length} 张图片`);
       selectImage(firstNewIndex);
-      recompressAll();
     }
 
     function fileKey(file) {
@@ -195,43 +212,10 @@
         format: formatSelect.value,
         quality: Number(qualityRange.value) / 100,
         scale: Number(scaleRange.value) / 100,
+        custom: customPattern.value,
+        start: Number(startNumber.value),
+        pattern: namePattern.value,
       };
-    }
-
-    function scheduleRecompress() {
-      clearTimeout(state.debounceId);
-      state.debounceId = setTimeout(() => {
-        updateNamePreview();
-        recompressAll();
-      }, 180);
-    }
-
-    async function recompressAll() {
-      if (state.files.length === 0) return;
-
-      const token = ++state.runToken;
-      state.busy = true;
-      state.results.clear();
-      setProcessingState("压缩中...");
-      updateButtons();
-      renderBatchList();
-      setCurrentOriginalPreview();
-      setCompressedPlaceholder("正在生成压缩预览...");
-
-      for (let index = 0; index < state.files.length; index += 1) {
-        if (token !== state.runToken) return;
-        await compressAndStore(index);
-        if (token !== state.runToken) return;
-        renderBatchList();
-        if (index === state.currentIndex) updateCompressedPreview();
-      }
-
-      state.busy = false;
-      setProcessingState("完成");
-      updateStats();
-      updateButtons();
-      renderBatchList();
-      updateCompressedPreview();
     }
 
     async function compressAndStore(index) {
@@ -336,7 +320,7 @@
 
       const result = state.results.get(fileKey(file));
       if (!result) {
-        setCompressedPlaceholder("等待压缩");
+        setCompressedPlaceholder("点击下载时生成压缩图");
         return;
       }
 
@@ -387,8 +371,8 @@
         ratio.className = "ratio neutral";
 
         if (!result) {
-          meta.textContent = `${utils.formatBytes(file.size)} · 处理中`;
-          ratio.textContent = "...";
+          meta.textContent = `${utils.formatBytes(file.size)} · 待下载时压缩`;
+          ratio.textContent = "待处理";
         } else if (result.error) {
           meta.textContent = result.error;
           ratio.className = "ratio negative";
@@ -429,7 +413,7 @@
       }
 
       if (readyCount === 0) {
-        batchStats.textContent = `${state.files.length} 张图片 · 处理中`;
+        batchStats.textContent = `${state.files.length} 张图片 · 等待下载时压缩`;
         return;
       }
 
@@ -446,24 +430,23 @@
 
     function updateButtons() {
       const current = state.files[state.currentIndex];
-      const currentResult = current ? state.results.get(fileKey(current)) : null;
-      const readyCount = state.files.filter((file) => {
-        const result = state.results.get(fileKey(file));
-        return result && !result.error;
-      }).length;
 
-      downloadSelected.disabled = !currentResult || Boolean(currentResult.error) || state.busy;
-      downloadAll.disabled = state.files.length === 0 || readyCount !== state.files.length || state.busy;
+      downloadSelected.disabled = !current || state.busy;
+      downloadAll.disabled = state.files.length === 0 || state.busy;
     }
 
     function updateNamePreview() {
       const file = state.files[state.currentIndex];
       const originalName = file ? file.name : "photo.jpg";
       const label = file ? "下载名称" : "示例";
+      const settings = getSettings();
       namePreview.textContent = `${label}：${utils.buildOutputName({
         originalName,
         index: state.currentIndex,
-        format: formatSelect.value,
+        format: settings.format,
+        custom: settings.custom,
+        start: settings.start,
+        pattern: settings.pattern,
       })}`;
     }
 
@@ -471,37 +454,74 @@
       processingState.textContent = text;
     }
 
-    function downloadCurrentImage() {
+    function clearPixelResults(message) {
+      state.results.clear();
+      setProcessingState(state.files.length ? "等待下载" : "准备就绪");
+      if (state.files.length) setCompressedPlaceholder(message);
+      updateNamePreview();
+      renderBatchList();
+      updateButtons();
+    }
+
+    async function compressCurrentForDownload() {
       const file = state.files[state.currentIndex];
-      const result = file ? state.results.get(fileKey(file)) : null;
-      if (!file || !result || result.error) {
-        showToast("当前图片还没有可下载的压缩结果");
+      if (!file) {
+        showToast("请先上传图片");
         return;
       }
 
-      saveBlob(result.blob, outputNameForIndex(state.currentIndex));
+      state.busy = true;
+      setProcessingState("压缩中...");
+      setCompressedPlaceholder("正在生成压缩图片...");
+      updateButtons();
+
+      try {
+        await compressAndStore(state.currentIndex);
+        const result = state.results.get(fileKey(file));
+        updateCompressedPreview();
+        renderBatchList();
+
+        if (!result || result.error) throw new Error(result?.error || "压缩失败");
+        saveBlob(result.blob, outputNameForIndex(state.currentIndex));
+        showToast("已下载压缩图片");
+        setProcessingState("完成");
+      } catch (error) {
+        showToast(error.message || "压缩失败，请重试");
+        setProcessingState("压缩失败");
+      } finally {
+        state.busy = false;
+        updateButtons();
+      }
     }
 
-    async function downloadAllImages() {
+    async function compressAllForDownload() {
       if (!window.JSZip) {
         showToast("JSZip 加载失败，暂时无法打包下载");
+        return;
+      }
+      if (state.files.length === 0) {
+        showToast("请先上传图片");
         return;
       }
 
       const zip = new JSZip();
       const folder = zip.folder("compressed-images");
-      downloadAll.disabled = true;
+      const usedNames = new Set();
+      state.busy = true;
+      state.results.clear();
       setProcessingState("打包中...");
+      updateButtons();
+      renderBatchList();
 
       try {
         for (let index = 0; index < state.files.length; index += 1) {
           const file = state.files[index];
-          let result = state.results.get(fileKey(file));
-          if (!result || result.error) {
-            result = await compressFile(file);
-            state.results.set(fileKey(file), result);
-          }
-          folder.file(outputNameForIndex(index), result.blob);
+          await compressAndStore(index);
+          const result = state.results.get(fileKey(file));
+          if (!result || result.error) throw new Error(`${file.name} 压缩失败`);
+          folder.file(uniqueOutputName(index, usedNames), result.blob);
+          if (index === state.currentIndex) updateCompressedPreview();
+          renderBatchList();
         }
 
         const zipBlob = await zip.generateAsync({
@@ -511,10 +531,12 @@
         });
         saveBlob(zipBlob, `压缩图片_${state.files.length}张.zip`);
         showToast("ZIP 已生成");
+        setProcessingState("完成");
       } catch (error) {
         showToast(error.message || "打包失败，请重试");
+        setProcessingState("打包失败");
       } finally {
-        setProcessingState("完成");
+        state.busy = false;
         updateButtons();
       }
     }
@@ -525,7 +547,32 @@
         originalName: state.files[index].name,
         index,
         format: settings.format,
+        custom: settings.custom,
+        start: settings.start,
+        pattern: settings.pattern,
       });
+    }
+
+    function uniqueOutputName(index, usedNames) {
+      const filename = outputNameForIndex(index);
+      if (!usedNames.has(filename)) {
+        usedNames.add(filename);
+        return filename;
+      }
+
+      const dotIndex = filename.lastIndexOf(".");
+      const base = dotIndex > 0 ? filename.slice(0, dotIndex) : filename;
+      const extension = dotIndex > 0 ? filename.slice(dotIndex) : "";
+      let counter = 2;
+      let nextName = `${base}-${counter}${extension}`;
+
+      while (usedNames.has(nextName)) {
+        counter += 1;
+        nextName = `${base}-${counter}${extension}`;
+      }
+
+      usedNames.add(nextName);
+      return nextName;
     }
 
     function saveBlob(blob, filename) {
