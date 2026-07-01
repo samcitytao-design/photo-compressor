@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图像压缩工具</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <p class="eyebrow">本地处理 · 不上传图片</p>
+      <h1>图像压缩工具</h1>
+      <p class="header-note">拖入图片，调整质量和尺寸，然后下载压缩结果。</p>
+    </header>
+
+    <section class="upload-zone" id="uploadArea" aria-label="上传图片">
+      <input id="fileInput" type="file" accept="image/*" multiple hidden>
+      <div class="upload-icon" aria-hidden="true">↑</div>
+      <strong>拖拽图片到这里或点击上传</strong>
+      <span>支持多张图片，处理过程只在当前浏览器中完成。</span>
+    </section>
+
+    <section class="workspace" id="workspace" hidden>
+      <aside class="settings-panel" aria-label="压缩设置">
+        <div class="panel-title">
+          <h2>压缩设置</h2>
+          <span id="processingState">准备就绪</span>
+        </div>
+
+        <div class="control-group">
+          <label for="formatSelect">格式</label>
+          <select id="formatSelect">
+            <option value="webp">WebP</option>
+            <option value="jpeg">JPEG</option>
+            <option value="png">PNG</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="qualityRange">质量 <span id="qualityValue">80%</span></label>
+          <input id="qualityRange" type="range" min="1" max="100" value="80">
+        </div>
+
+        <div class="control-group">
+          <label for="scaleRange">缩放 <span id="scaleValue">100%</span></label>
+          <input id="scaleRange" type="range" min="1" max="100" value="100">
+        </div>
+
+        <p class="name-preview" id="namePreview">下载名称：保留原文件名，仅替换格式后缀</p>
+
+        <div class="action-row">
+          <button class="primary-button" id="downloadSelected" type="button">下载当前图片</button>
+          <button class="secondary-button" id="downloadAll" type="button">下载全部 ZIP</button>
+        </div>
+      </aside>
+
+      <section class="preview-area">
+        <nav class="image-nav" aria-label="图片切换">
+          <button id="prevImage" type="button" aria-label="上一张">‹</button>
+          <span id="imageCounter">1 / 1</span>
+          <button id="nextImage" type="button" aria-label="下一张">›</button>
+        </nav>
+
+        <div class="preview-grid">
+          <article class="preview-card">
+            <h2>原图</h2>
+            <button class="image-button" type="button" data-preview="original">
+              <img id="originalPreview" alt="原图预览">
+            </button>
+            <p id="originalMeta">等待图片</p>
+          </article>
+
+          <article class="preview-card">
+            <h2>压缩后</h2>
+            <button class="image-button" type="button" data-preview="compressed">
+              <img id="compressedPreview" alt="压缩后预览">
+            </button>
+            <p id="compressedMeta">等待压缩</p>
+          </article>
+        </div>
+
+        <section class="batch-panel">
+          <div class="batch-header">
+            <h2>批量处理列表</h2>
+            <p id="batchStats">等待图片</p>
+          </div>
+          <div class="batch-list" id="batchList"></div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  <div class="fullscreen-preview" id="fullscreenPreview" hidden>
+    <button id="closeFullscreen" type="button" aria-label="关闭预览">×</button>
+    <img id="fullscreenImage" alt="全屏图片预览">
+  </div>
+</body>
+</html>
