@@ -14,6 +14,6 @@
 
 ## 使用
 
-直接打开 `index.html` 即可使用。上传图片后先调整格式、质量、缩放和命名规则，再点击下载。
+直接打开 `https://samcitytao-design.github.io/photo-compressor/` 即可使用。上传图片后先调整格式、质量、缩放和命名规则，再点击下载。
 
 部署到 GitHub Pages 时，将站点来源设置为 `main` 分支根目录。
